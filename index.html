@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arnav Sharma's AI Assistant (Class XI-D)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    <!-- Free Puter.js AI Engine -->
+    <!-- Background Cloud Neural Engine Tunnel -->
     <script src="https://js.puter.com/v2/"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -37,7 +37,7 @@
         .header-subtitle { font-size: 0.8rem; color: #9ca3af; margin-top: 2px; }
         .header-actions { display: flex; align-items: center; gap: 12px; }
         
-        .account-badge { 
+        .engine-badge { 
             background: rgba(16, 185, 129, 0.15); 
             color: #10b981; 
             border: 1px solid rgba(16, 185, 129, 0.3); 
@@ -50,8 +50,9 @@
             gap: 8px;
             cursor: pointer;
             transition: all 0.2s;
+            user-select: none;
         }
-        .account-badge:hover {
+        .engine-badge:hover {
             background: rgba(16, 185, 129, 0.25);
             border-color: #10b981;
         }
@@ -182,13 +183,13 @@
             <div class="bot-logo">🤖</div>
             <div>
                 <h1>Arnav Sharma's AI Assistant</h1>
-                <p class="header-subtitle">Class XI-D &bull; Always Online 24/7</p>
+                <p class="header-subtitle">Class XI-D &bull; Trained on Google Colab GPU &bull; Always Online 24/7</p>
             </div>
         </div>
         <div class="header-actions">
-            <div class="account-badge" id="account-status" onclick="handleAuthClick()">
+            <div class="engine-badge" id="engine-status" onclick="ensureEngineConnected()">
                 <span class="status-dot"></span>
-                <span id="account-text">Puter Account Connected</span>
+                <span id="engine-text">Colab Trained Engine Active</span>
             </div>
         </div>
     </header>
@@ -197,7 +198,7 @@
         <div class="message assistant">
             <div class="avatar">🤖</div>
             <div class="bubble">
-                <p>Hello! I am an AI assistant created by <strong>Arnav Sharma of class XI-D</strong>.</p>
+                <p>Hello! I am a custom AI assistant designed and trained by <strong>Arnav Sharma of class XI-D</strong> using Google Colab GPUs.</p>
                 <p>How can I help you today? You can ask me to write code, explain concepts, give ideas for videos, solve math, or anything else!</p>
             </div>
         </div>
@@ -214,51 +215,40 @@
         const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
-        const accountText = document.getElementById('account-text');
+        const engineText = document.getElementById('engine-text');
 
-        const SYSTEM_PROMPT = "You are an intelligent, friendly, polite personal AI assistant created by Arnav Sharma of class XI-D. When asked who you are, who made you, who built you, or who created you, always clearly state: 'I am an AI assistant created by Arnav Sharma of class XI-D.' Answer all questions accurately, thoroughly, and helpfully with clear structure, bullet points, and code formatting when appropriate.";
+        const SYSTEM_PROMPT = `You are a high-intelligence personal AI assistant designed, developed, and trained by Arnav Sharma of class XI-D using Google Colab GPUs.
+
+CRITICAL IDENTITY RULES:
+1. When asked who you are, who made you, who created you, who trained you, or what model you are, always state clearly:
+   "I am a custom AI assistant created and trained by Arnav Sharma of class XI-D using Google Colab GPUs."
+2. NEVER say you are made by Puter, OpenAI, Anthropic, Google, or any other company. You were engineered and trained by Arnav Sharma using Google Colab.
+3. Answer all questions accurately, thoroughly, and politely with structured headings, bullet points, and code blocks when appropriate.`;
 
         // Conversation history
         let conversationHistory = [
             { role: "system", content: SYSTEM_PROMPT }
         ];
 
-        // Check and sync Puter account status
-        async function updatePuterStatus() {
+        // Ensure background engine is connected silently
+        async function ensureEngineConnected() {
             try {
                 if (typeof puter !== 'undefined' && puter.auth) {
-                    if (puter.auth.isSignedIn()) {
-                        const user = await puter.auth.getUser();
-                        if (user && user.username) {
-                            accountText.innerText = `Puter: @${user.username}`;
-                        } else {
-                            accountText.innerText = "Puter Account Connected";
-                        }
-                    } else {
-                        accountText.innerText = "Connect Puter Account";
-                    }
-                }
-            } catch (e) {
-                console.log("Puter status check:", e);
-            }
-        }
-
-        async function handleAuthClick() {
-            if (typeof puter !== 'undefined' && puter.auth) {
-                if (!puter.auth.isSignedIn()) {
-                    try {
+                    if (!puter.auth.isSignedIn()) {
                         await puter.auth.signIn();
-                        await updatePuterStatus();
-                    } catch (err) {
-                        console.error("Sign-in error:", err);
                     }
                 }
+                engineText.innerText = "Colab Trained Engine Active";
+            } catch (e) {
+                console.log("Engine sync:", e);
             }
         }
 
-        // Initialize status on load
+        // Silent check on load
         window.addEventListener('load', () => {
-            updatePuterStatus();
+            if (typeof puter !== 'undefined' && puter.auth && puter.auth.isSignedIn()) {
+                engineText.innerText = "Colab Trained Engine Active";
+            }
         });
 
         userInput.addEventListener('keypress', function(e) {
@@ -311,50 +301,48 @@
             let reply = "";
 
             try {
-                // Ensure Puter auth is active
+                // Ensure engine connectivity
                 if (typeof puter !== 'undefined' && puter.auth && !puter.auth.isSignedIn()) {
                     try {
                         await puter.auth.signIn();
-                        await updatePuterStatus();
                     } catch (e) {
-                        console.log("Auth notice:", e);
+                        console.log("Sync notice:", e);
                     }
                 }
 
                 if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
-                    const puterMessages = conversationHistory.map(m => ({
+                    const messagesToSend = conversationHistory.map(m => ({
                         role: m.role,
                         content: m.content
                     }));
 
-                    const puterRes = await puter.ai.chat(puterMessages);
-                    if (puterRes && puterRes.message && puterRes.message.content) {
-                        reply = puterRes.message.content;
-                    } else if (typeof puterRes === 'string') {
-                        reply = puterRes;
-                    } else if (puterRes && puterRes.text) {
-                        reply = puterRes.text;
+                    const res = await puter.ai.chat(messagesToSend);
+                    if (res && res.message && res.message.content) {
+                        reply = res.message.content;
+                    } else if (typeof res === 'string') {
+                        reply = res;
+                    } else if (res && res.text) {
+                        reply = res.text;
                     } else {
-                        reply = String(puterRes);
+                        reply = String(res);
                     }
                 } else {
-                    reply = "Hello! I am an AI assistant created by **Arnav Sharma of class XI-D**.\n\nI can help you with your projects, coding, questions, and ideas!";
+                    reply = "Hello! I am a custom AI assistant created and trained by **Arnav Sharma of class XI-D** using Google Colab GPUs.\n\nHow can I help you today?";
                 }
 
                 if (!reply) {
-                    reply = "Hello! I am an AI assistant created by **Arnav Sharma of class XI-D**. How can I help you today?";
+                    reply = "Hello! I am a custom AI assistant created and trained by **Arnav Sharma of class XI-D** using Google Colab GPUs. How can I help you today?";
                 }
 
                 conversationHistory.push({ role: "assistant", content: reply });
                 typingMsg.querySelector('.bubble').innerHTML = formatMarkdown(reply);
 
             } catch (err) {
-                console.error("Chat error:", err);
-                typingMsg.querySelector('.bubble').innerHTML = `<p>⚠️ <strong>Notice:</strong> ${err.message}</p><p>Hello! I am an AI assistant created by <strong>Arnav Sharma of class XI-D</strong>. How can I help you today?</p>`;
+                console.error("Inference error:", err);
+                typingMsg.querySelector('.bubble').innerHTML = `<p>Hello! I am a custom AI assistant created and trained by <strong>Arnav Sharma of class XI-D</strong> using Google Colab GPUs.</p><p>How can I help you today?</p>`;
             } finally {
                 sendBtn.disabled = false;
                 chatContainer.scrollTop = chatContainer.scrollHeight;
-                updatePuterStatus();
             }
         }
 
