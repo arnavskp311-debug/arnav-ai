@@ -164,7 +164,7 @@
             font-style: italic;
             color: #8b949e;
         }
-        /* Modal for token */
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -235,11 +235,11 @@
             <span style="font-size: 1.5rem;">🤖</span>
             <div>
                 <h1>Arnav Sharma's AI Assistant</h1>
-                <p style="font-size: 0.8rem; color: #8b949e;">Class XI-D &bull; 1.7B Neural Engine</p>
+                <p style="font-size: 0.8rem; color: #8b949e;">Class XI-D &bull; Neural Cloud Engine</p>
             </div>
         </div>
         <div class="header-actions">
-            <button class="token-btn" onclick="openModal()">🔑 Connect Free Token</button>
+            <button class="token-btn" onclick="openModal()">🔑 Token Settings</button>
             <span class="badge">Online 24/7</span>
         </div>
     </header>
@@ -263,10 +263,10 @@
     <!-- Token Modal -->
     <div id="token-modal" class="modal">
         <div class="modal-content">
-            <h2>Connect Your Free Hugging Face Token</h2>
-            <p>To let your AI answer questions 24/7, paste your free token below. It is stored privately in your browser.</p>
+            <h2>Hugging Face Token Settings</h2>
+            <p>Paste your free token below to power the AI engine 24/7. Stored privately on your device.</p>
             <input type="text" id="hf-token-input" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxx">
-            <p style="font-size: 0.8rem;">👉 Get your free token in 10 seconds: <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #58a6ff;">huggingface.co/settings/tokens</a></p>
+            <p style="font-size: 0.8rem;">👉 Get token: <a href="https://huggingface.co/settings/tokens" target="_blank" style="color: #58a6ff;">huggingface.co/settings/tokens</a> (select <strong>Inference</strong> preset)</p>
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="closeModal()">Cancel</button>
                 <button class="btn-save" onclick="saveToken()">Save & Activate</button>
@@ -280,6 +280,7 @@
         const modal = document.getElementById('token-modal');
         const tokenInput = document.getElementById('hf-token-input');
 
+        let chatHistory = [];
         let savedToken = localStorage.getItem('hf_user_token') || '';
         if (savedToken) {
             tokenInput.value = savedToken;
@@ -295,13 +296,36 @@
                 savedToken = val;
                 document.querySelector('.token-btn').innerText = '✅ Token Connected';
                 closeModal();
-                alert('Token connected successfully! Your AI is now fully powered.');
+                alert('Token saved! Your AI is now ready.');
             }
         }
 
         userInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendMessage();
         });
+
+        // Models supported on Hugging Face free serverless router
+        const MODELS = [
+            "Qwen/Qwen2.5-72B-Instruct",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "Qwen/Qwen2.5-Coder-32B-Instruct"
+        ];
+
+        async function queryModel(modelName, messages, token) {
+            return await fetch("https://router.huggingface.co/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: messages,
+                    max_tokens: 350,
+                    temperature: 0.6
+                })
+            });
+        }
 
         async function sendMessage() {
             const text = userInput.value.trim();
@@ -314,45 +338,48 @@
 
             if (!savedToken) {
                 openModal();
-                typingMsg.querySelector('.bubble').innerHTML = "Please connect your free Hugging Face token by clicking the <strong>🔑 Connect Free Token</strong> button above to activate the AI brain!";
+                typingMsg.querySelector('.bubble').innerHTML = "Please connect your free token using the <strong>🔑 Token Settings</strong> button above.";
                 return;
             }
 
-            try {
-                const response = await fetch("https://router.huggingface.co/hf-inference/models/HuggingFaceTB/SmolLM2-1.7B-Instruct", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${savedToken}`
-                    },
-                    body: JSON.stringify({
-                        inputs: `<|im_start|>system\nYou are an intelligent personal AI assistant created by Arnav Sharma of class XI-D. When asked who created you, always state that you were created by Arnav Sharma of class XI-D.<|im_end|>\n<|im_start|>user\n${text}<|im_end|>\n<|im_start|>assistant\n`,
-                        parameters: { max_new_tokens: 300, temperature: 0.6 }
-                    })
-                });
+            const systemPrompt = "You are an intelligent, polite personal AI assistant created by Arnav Sharma of class XI-D. When asked who you are, who created you, or when introducing yourself, always state proudly: 'Hello! I am an AI assistant created by Arnav Sharma of class XI-D.' Answer all questions clearly and accurately.";
+            
+            const messages = [
+                { role: "system", content: systemPrompt },
+                ...chatHistory,
+                { role: "user", content: text }
+            ];
 
-                const data = await response.json();
-                let reply = "";
+            let success = false;
+            let reply = "";
 
-                if (Array.isArray(data) && data[0] && data[0].generated_text) {
-                    const fullText = data[0].generated_text;
-                    if (fullText.includes("<|im_start|>assistant")) {
-                        reply = fullText.split("<|im_start|>assistant").pop().replace(/<\|im_end\|>/g, "").trim();
+            // Try primary and fallback models
+            for (const m of MODELS) {
+                try {
+                    const response = await queryModel(m, messages, savedToken);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.choices && data.choices[0] && data.choices[0].message) {
+                            reply = data.choices[0].message.content.trim();
+                            chatHistory.push({ role: "user", content: text });
+                            chatHistory.push({ role: "assistant", content: reply });
+                            success = true;
+                            break;
+                        }
                     } else {
-                        reply = fullText;
+                        const err = await response.json().catch(() => ({}));
+                        if (err.error && err.error.includes("gated")) continue;
                     }
-                } else if (data.error) {
-                    reply = `AI notice: ${data.error}`;
-                } else {
-                    reply = "I am an AI assistant created by Arnav Sharma of class XI-D. How can I help you?";
+                } catch (e) {
+                    console.warn(`Model ${m} failed:`, e);
                 }
-
-                typingMsg.querySelector('.bubble').innerHTML = reply.replace(/\n/g, '<br>');
-
-            } catch (err) {
-                typingMsg.querySelector('.bubble').innerHTML = "Connection error. Please verify your token.";
             }
 
+            if (!success) {
+                reply = "Hello! I am an AI assistant created by Arnav Sharma of class XI-D. How can I help you today?";
+            }
+
+            typingMsg.querySelector('.bubble').innerHTML = reply.replace(/\n/g, '<br>');
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
