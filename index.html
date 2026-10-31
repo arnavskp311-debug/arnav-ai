@@ -132,6 +132,30 @@
         .bubble li { margin-bottom: 4px; }
         .bubble p { margin-bottom: 8px; }
         .bubble p:last-child { margin-bottom: 0; }
+
+        /* Attached File Badges */
+        .attached-file-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+        .attached-img-preview {
+            max-width: 260px;
+            max-height: 180px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: block;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
         
         .typing { display: flex; align-items: center; gap: 4px; color: #94a3b8; font-style: italic; }
         .typing-dot { width: 6px; height: 6px; background: #94a3b8; border-radius: 50%; animation: blink 1.4s infinite both; }
@@ -146,7 +170,72 @@
             display: flex; 
             justify-content: center; 
         }
-        .input-box { display: flex; gap: 12px; width: 100%; max-width: 860px; }
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 860px;
+        }
+        .file-preview-bar {
+            display: none;
+            padding: 8px 14px;
+            background: #1e293b;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            animation: fadeIn 0.15s ease-in-out;
+        }
+        .file-preview-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .file-remove-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .file-remove-btn:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+        }
+        
+        .input-box { display: flex; gap: 10px; width: 100%; align-items: center; }
+        
+        .attach-btn {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #9ca3af;
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.3rem;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .attach-btn:hover {
+            background: #374151;
+            color: #38bdf8;
+            border-color: #3b82f6;
+        }
+        
         input[type="text"] { 
             flex: 1; 
             background: #0b0f19; 
@@ -159,6 +248,7 @@
             transition: border-color 0.2s; 
         }
         input[type="text"]:focus { border-color: #3b82f6; }
+        
         button#send-btn { 
             background: #10b981; 
             color: white; 
@@ -199,15 +289,37 @@
             <div class="avatar">🤖</div>
             <div class="bubble">
                 <p>Hello! I am a custom AI assistant designed and trained by <strong>Arnav Sharma of class XI-D</strong> using Google Colab GPUs.</p>
-                <p>How can I help you today? You can ask me to write code, explain concepts, give ideas for videos, solve math, or anything else!</p>
+                <p>How can I help you today? You can ask questions, write code, or use the <strong>📎 attach button</strong> to upload code files, text documents, or images for analysis!</p>
             </div>
         </div>
     </div>
 
     <div class="input-bar">
-        <div class="input-box">
-            <input type="text" id="user-input" placeholder="Ask anything (e.g., how to create a video, write a Python game)..." autocomplete="off">
-            <button id="send-btn" onclick="sendMessage()">Send</button>
+        <div class="input-container">
+            <!-- File preview pill -->
+            <div id="file-preview-bar" class="file-preview-bar">
+                <div class="file-preview-info">
+                    <span id="file-icon">📄</span>
+                    <span id="file-preview-name">file.txt (1.2 KB)</span>
+                </div>
+                <button type="button" class="file-remove-btn" onclick="removeFile()" title="Remove file">✕</button>
+            </div>
+
+            <div class="input-box">
+                <!-- Hidden file input -->
+                <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)">
+                
+                <!-- Attachment paperclip button -->
+                <button type="button" class="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file or image">
+                    📎
+                </button>
+
+                <!-- Text input -->
+                <input type="text" id="user-input" placeholder="Ask anything, or attach code/docs/images to analyze..." autocomplete="off">
+                
+                <!-- Send button -->
+                <button id="send-btn" onclick="sendMessage()">Send</button>
+            </div>
         </div>
     </div>
 
@@ -216,6 +328,12 @@
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const engineText = document.getElementById('engine-text');
+        const fileInput = document.getElementById('file-input');
+        const filePreviewBar = document.getElementById('file-preview-bar');
+        const filePreviewName = document.getElementById('file-preview-name');
+        const fileIcon = document.getElementById('file-icon');
+
+        let attachedFile = null;
 
         const SYSTEM_PROMPT = `You are a high-intelligence personal AI assistant designed, developed, and trained by Arnav Sharma of class XI-D using Google Colab GPUs.
 
@@ -223,12 +341,62 @@ CRITICAL IDENTITY RULES:
 1. When asked who you are, who made you, who created you, who trained you, or what model you are, always state clearly:
    "I am a custom AI assistant created and trained by Arnav Sharma of class XI-D using Google Colab GPUs."
 2. NEVER say you are made by Puter, OpenAI, Anthropic, Google, or any other company. You were engineered and trained by Arnav Sharma using Google Colab.
-3. Answer all questions accurately, thoroughly, and politely with structured headings, bullet points, and code blocks when appropriate.`;
+3. When analyzing attached files, code, or images, provide clean, thorough, line-by-line or section-by-section breakdowns, explain what the code or document does, spot any bugs, suggest optimizations, and provide updated code blocks where helpful.
+4. Answer all questions accurately, thoroughly, and politely with structured headings, bullet points, and code blocks when appropriate.`;
 
         // Conversation history
         let conversationHistory = [
             { role: "system", content: SYSTEM_PROMPT }
         ];
+
+        // Format file sizes
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const isImage = file.type.startsWith('image/');
+            attachedFile = {
+                rawFile: file,
+                name: file.name,
+                size: formatFileSize(file.size),
+                type: file.type,
+                isImage: isImage
+            };
+
+            fileIcon.innerText = isImage ? '🖼️' : '📄';
+            filePreviewName.innerText = `${file.name} (${attachedFile.size})`;
+            filePreviewBar.style.display = 'flex';
+        }
+
+        function removeFile() {
+            attachedFile = null;
+            fileInput.value = '';
+            filePreviewBar.style.display = 'none';
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+            });
+        }
 
         // Ensure background engine is connected silently
         async function ensureEngineConnected() {
@@ -244,7 +412,6 @@ CRITICAL IDENTITY RULES:
             }
         }
 
-        // Silent check on load
         window.addEventListener('load', () => {
             if (typeof puter !== 'undefined' && puter.auth && puter.auth.isSignedIn()) {
                 engineText.innerText = "Colab Trained Engine Active";
@@ -288,20 +455,63 @@ CRITICAL IDENTITY RULES:
 
         async function sendMessage() {
             const text = userInput.value.trim();
-            if (!text) return;
+            if (!text && !attachedFile) return;
 
-            appendMessage('user', text);
+            const currentFileToSend = attachedFile;
+            let userDisplayHtml = "";
+            let fileDataForAi = null;
+
+            if (currentFileToSend) {
+                if (currentFileToSend.isImage) {
+                    const dataUrl = await readFileAsDataURL(currentFileToSend.rawFile);
+                    userDisplayHtml += `<img src="${dataUrl}" class="attached-img-preview" alt="Attached Image">`;
+                    userDisplayHtml += `<div class="attached-file-badge">🖼️ ${currentFileToSend.name} (${currentFileToSend.size})</div>`;
+                    fileDataForAi = { type: 'image', url: dataUrl, name: currentFileToSend.name };
+                } else {
+                    userDisplayHtml += `<div class="attached-file-badge">📄 ${currentFileToSend.name} (${currentFileToSend.size})</div>`;
+                    try {
+                        const fileContent = await readFileAsText(currentFileToSend.rawFile);
+                        fileDataForAi = { type: 'text', content: fileContent, name: currentFileToSend.name, size: currentFileToSend.size };
+                    } catch (e) {
+                        fileDataForAi = { type: 'text', content: `[Binary file: ${currentFileToSend.name}]`, name: currentFileToSend.name, size: currentFileToSend.size };
+                    }
+                }
+            }
+
+            if (text) {
+                userDisplayHtml += `<p>${text}</p>`;
+            } else if (currentFileToSend) {
+                userDisplayHtml += `<p style="font-style: italic; opacity: 0.9;">Please analyze this ${currentFileToSend.isImage ? 'image' : 'file'}.</p>`;
+            }
+
+            appendMessage('user', userDisplayHtml);
             userInput.value = '';
+            removeFile();
             sendBtn.disabled = true;
 
-            const typingMsg = appendMessage('assistant', '<div class="typing"><span>Thinking</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>');
+            const typingMsg = appendMessage('assistant', '<div class="typing"><span>Analyzing & Thinking</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>');
 
-            conversationHistory.push({ role: "user", content: text });
+            // Construct payload for AI
+            let apiMessageContent = "";
+            if (fileDataForAi) {
+                if (fileDataForAi.type === 'image') {
+                    apiMessageContent = [
+                        { type: "image_url", image_url: { url: fileDataForAi.url } },
+                        { type: "text", text: text || "Please examine and describe this image in detail, answering any questions or explaining its contents." }
+                    ];
+                } else {
+                    apiMessageContent = `[Attached File: ${fileDataForAi.name} (${fileDataForAi.size})]\n\`\`\`\n${fileDataForAi.content}\n\`\`\`\n\nUser Question: ${text || "Please analyze, review, and explain the contents of this file in detail."}`;
+                }
+            } else {
+                apiMessageContent = text;
+            }
+
+            conversationHistory.push({ role: "user", content: apiMessageContent });
 
             let reply = "";
 
             try {
-                // Ensure engine connectivity
+                // Ensure connectivity
                 if (typeof puter !== 'undefined' && puter.auth && !puter.auth.isSignedIn()) {
                     try {
                         await puter.auth.signIn();
