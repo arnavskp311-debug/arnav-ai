@@ -306,9 +306,10 @@
 
         // Models supported on Hugging Face free serverless router
         const MODELS = [
+            "meta-llama/Llama-3.2-1B-Instruct",
+            "meta-llama/Llama-3.2-3B-Instruct",
             "Qwen/Qwen2.5-72B-Instruct",
-            "mistralai/Mistral-7B-Instruct-v0.3",
-            "Qwen/Qwen2.5-Coder-32B-Instruct"
+            "mistralai/Mistral-7B-Instruct-v0.3"
         ];
 
         async function queryModel(modelName, messages, token) {
@@ -353,6 +354,8 @@
             let success = false;
             let reply = "";
 
+            let lastError = "";
+
             // Try primary and fallback models
             for (const m of MODELS) {
                 try {
@@ -368,15 +371,15 @@
                         }
                     } else {
                         const err = await response.json().catch(() => ({}));
-                        if (err.error && err.error.includes("gated")) continue;
+                        lastError = err.error || err.message || `HTTP ${response.status}: ${response.statusText}`;
                     }
                 } catch (e) {
-                    console.warn(`Model ${m} failed:`, e);
+                    lastError = e.message || String(e);
                 }
             }
 
             if (!success) {
-                reply = "Hello! I am an AI assistant created by Arnav Sharma of class XI-D. How can I help you today?";
+                reply = `⚠️ <strong>Connection Notice:</strong> ${lastError || "Could not reach the AI router."}<br><br>💡 <em>Please ensure your Hugging Face token was created as a <strong>Read</strong> token at <a href='https://huggingface.co/settings/tokens' target='_blank' style='color:#58a6ff;'>huggingface.co/settings/tokens</a>.</em>`;
             }
 
             typingMsg.querySelector('.bubble').innerHTML = reply.replace(/\n/g, '<br>');
